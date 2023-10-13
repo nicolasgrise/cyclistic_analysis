@@ -1,0 +1,247 @@
+---
+title: "Cyclistic Analysis - User Profiles"
+author: "Nicolas Grisé"
+date: "2023-08-20"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Business Task
+
+According to the Cyclistic financial team, cyclists using the annual membership pass are much more profitable than those using a one-ride or one-day pass. The marketing director of Cyclistic has for task to designing marketing strategies aiming at converting the casual riders into membership holders.
+
+To achieve this goal, we have to first understand our segments. The purpose of this analysis is to show how annual members and casual riders use Cyclistic differently.
+
+# Limitations
+
+The data collected for this analysis is not complete since the personal information about riders such as names and credit card numbers were not shared, as well as the pricing.
+
+This is why we will focus on our trips data. That includes: - Starting and ending stations - Dates and time
+
+# Preparation
+
+## Exporting Data to Excel
+
+To begin, the data from the past 12 months (July 2023 - August 2022) were acquired from the company bucket storage and then downloaded to a personal computer in the case_study_cyclistic folder. Since the data came in ZIP files, all files were then opened and saved into a new cyclistic_tripdata folder.
+
+From there, the now CSV files were converted into XLS files to be processed through Excel.
+
+## Transforming Data in Excel
+
+For each Excel files, two new columns were added:
+
+1.  ride_length: By subtracting the column "started_at" to the "ended_at" resulting in the duration of a trip. The cells were then converted into the HH:MM:SS format using Format \> Cells \> Time \> 37:30:55
+
+2.  day_of_week: By calculating the day of the week that each ride started using the "WEEKDAY" command (for example, =WEEKDAY(C2,1)) in each file. Format as General, noting that 1 = Sunday and 7 = Saturday.
+
+The files were then saved back to their CSV format for further analysis.
+
+## Import Necessary Tools
+
+```{r library, warning=FALSE}
+library(tidyverse)
+library(scales)
+```
+
+## Import Data Into r
+
+Our next step was to import the whole cyclistic_tripdata folder into R Studio to be able to start the analysis. Here are the steps used to upload the files:
+
+```{r import data, warning=FALSE}
+july_rides_2023 <- read_csv("/Users/user/Desktop/case_study_cyclistic/CSV/202307-cyclistic-tripdata.csv")
+june_rides_2023 <- read_csv("/Users/user/Desktop/case_study_cyclistic/CSV/202306-cyclistic-tripdata.csv")
+may_rides_2023 <- read_csv("/Users/user/Desktop/case_study_cyclistic/CSV/202305-cyclistic-tripdata.csv")
+april_rides_2023 <- read_csv("/Users/user/Desktop/case_study_cyclistic/CSV/202304-cyclistic-tripdata.csv")
+march_rides_2023 <- read_csv("/Users/user/Desktop/case_study_cyclistic/CSV/202303-cyclistic-tripdata.csv")
+february_rides_2023 <- read_csv("/Users/user/Desktop/case_study_cyclistic/CSV/202302-cyclistic-tripdata.csv")
+january_rides_2023 <- read_csv("/Users/user/Desktop/case_study_cyclistic/CSV/202301-cyclistic-tripdata.csv")
+december_rides_2022 <- read_csv("/Users/user/Desktop/case_study_cyclistic/CSV/202212-cyclistic-tripdata.csv")
+november_rides_2022 <- read_csv("/Users/user/Desktop/case_study_cyclistic/CSV/202211-cyclistic-tripdata.csv")
+october_rides_2022 <- read_csv("/Users/user/Desktop/case_study_cyclistic/CSV/202210-cyclistic-tripdata.csv")
+september_rides_2022 <- read_csv("/Users/user/Desktop/case_study_cyclistic/CSV/202209-cyclistic-tripdata.csv")
+august_rides_2022 <- read_csv("/Users/user/Desktop/case_study_cyclistic/CSV/202208-cyclistic-tripdata.csv")
+```
+
+## Create Dataframe
+
+Once the files are located in r, we have to merge all tables into one data frame by using the "bind" function.
+
+```{r dataframe, warning=FALSE}
+df <- rbind(july_rides_2023, june_rides_2023, may_rides_2023, april_rides_2023, march_rides_2023, february_rides_2023, january_rides_2023, december_rides_2022, november_rides_2022, october_rides_2022, september_rides_2022, august_rides_2022)
+glimpse(df)
+```
+
+# Analysis
+
+## Clean Data
+
+After a first glimpse, we noticed that some of the starting stations and ending stations were missing resulting in cells containing NA. Before diving into the analysis, the NA cells were replaced by "no station" to indicate that the bikes were probably taken or left on the streets.
+
+```{r clean}
+new_df <- df %>%
+  mutate_if(is.character, ~replace_na(., "no station"))
+```
+
+## Identify the Number of Trips Made by Casual & Annual Members
+
+Our first step consists on identifying the number of trips made by both segments to have a better understanding of who uses Cyclistic the most. A simple "sum" function does the job. The results are then represented on a bar chart using ggplot2.
+
+```{r number of trips}
+trips_casual <- sum(df$member_casual == "casual") # 2,169,555
+trips_member <- sum(df$member_casual == "member") # 3,554,051
+
+ggplot(data = df) +
+  geom_bar(mapping = aes(x = member_casual, fill = member_casual)) +
+  labs(title = "Trips - Casual vs Annual Members", y = "number of trips", x = "status", fill = "Status") +
+  scale_y_continuous(labels = comma) +
+  scale_x_discrete(labels = c("Casual", "Member")) +
+  annotate("text", x = 1, y = 2100000, label = "2,169,555") +
+  annotate("text", x = 2, y = 3400000, label = "3,554,051")
+```
+
+## Compare the Bicycle Preference for Both Segments
+
+Now that we know how many trips we have from both segments, we are looking at their preference when it comes to choosing a bike. The bike types are the following: - Classic Bike - Docked Bike - Electric Bike
+
+Again, a bar chart is used to represent the preferences for both segments.
+
+```{r bike types}
+ggplot(data = df) +
+  geom_bar(mapping = aes(x = rideable_type, fill = rideable_type)) +
+  facet_wrap(~member_casual) +
+  labs(title = "Preferred Bike Type", y = "number of trips", x = "bike type", fill = "Bike Type") +
+  scale_y_continuous(labels = comma) +
+  scale_x_discrete(labels = c("Classic Bike", "Docked Bike", "Electric Bike")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Most Popular Stations Used by Annual Members
+
+Here, we are interested in where the current annual members are using Cyclistic the most. For this section, we will target the 10 most frequented stations for both start and end. By doing so, we realized that both number one stations were "no station" so, we did another search to get only the existing stations.
+
+```{r members top 10}
+
+new_df %>% #first search revealing the "no station" phenomenon
+  group_by(member_casual) %>%
+  count(start_station_name) %>%
+  filter(member_casual == "member") %>%
+  arrange(desc(n)) %>%
+  head(10)
+
+df %>%
+  drop_na() %>%
+  group_by(member_casual) %>%
+  count(start_station_name) %>%
+  filter(member_casual == "member") %>%
+  arrange(desc(n)) %>%
+  head(10)
+
+df %>%
+  drop_na() %>%
+  group_by(member_casual) %>%
+  count(end_station_name) %>%
+  filter(member_casual == "member") %>%
+  arrange(desc(n)) %>%
+  head(10)
+```
+
+## Most Popular Stations Used by Casual Members
+
+We then did the same thing for the casual members. Since both number one stations were also "no station", we will only focus on the existing stations here.
+
+```{r casual top 10}
+
+df %>%
+  drop_na() %>%
+  group_by(member_casual) %>%
+  count(start_station_name) %>%
+  filter(member_casual == "casual") %>%
+  arrange(desc(n)) %>%
+  head(10)
+
+df %>%
+  drop_na() %>%
+  group_by(member_casual) %>%
+  count(end_station_name) %>%
+  filter(member_casual == "casual") %>%
+  arrange(desc(n)) %>%
+  head(10)
+```
+
+## Bikes Taken & Left on the Streets
+
+Surprised by what we found in the previous results, we are now looking at the percentages of bikes that have been taken from the streets and the ones from those that were left on the streets.
+
+### Taken
+
+```{r taken from the streets}
+new_df %>%
+  group_by(member_casual) %>%
+  count(start_station_name) %>%
+  mutate(perc = n/sum(n)) %>%
+  select(-n) %>%
+  arrange(desc(perc)) %>%
+  head(2) #results showed that the most popular place to take a bike was from the street from both casual and annual members
+```
+
+### Left
+
+```{r left on the streets}
+new_df %>%
+  group_by(member_casual) %>%
+  count(end_station_name) %>%
+  mutate(perc = n/sum(n)) %>%
+  select(-n) %>%
+  arrange(desc(perc)) %>%
+  head(2)
+```
+
+## Time Spent Using Cyclistic
+
+For this section, we are looking at how long both segments spent using Cyclistic services.
+
+```{r ride time}
+aggregate(ride_length ~ member_casual, data = df, mean)
+```
+
+## Traffic per Day of the Week
+
+With the information gathered on each segment's favorite station and their average time spent on Cyclistic's bicycles, our last step consists at looking at their weekly habits to find out which day(s) of the week are most popular.
+
+```{r week day traffic}
+day_of_week_df <- df %>%
+  group_by(member_casual) %>%
+  count(day_of_week)
+
+ggplot(data = day_of_week_df) +
+  geom_point(mapping = aes(x = day_of_week, y = n)) +
+  geom_line(mapping = aes(x = day_of_week, y = n)) +
+  facet_wrap(~member_casual) +
+  labs(title = "Week Day Traffic", y = "number of trips", x = "day of the week") +
+  scale_y_continuous(labels = comma) +
+  scale_x_continuous(breaks = c(1:7), 
+    labels = c("Sun","Mon","Tue","Wed","Thu","Fri","Sat"))
+```
+
+# Conclusion
+
+After analyzing data from both segments regarding their bike preference, favorite stations, time spent riding and their weekly traffic, here are some observations:
+
+1.  Both casual riders and members prefer using our electric bikes with a clear distinction for casual members.
+
+2.  Both segments tend to leave their bikes on the street and not return them to a station.
+
+3.  Our casual riders prefer longer rides to touristic attractions on weekends (mainly Saturday) while our members rather use our bikes for short trips on busy streets during the week.
+
+With these observations, we can conclude that most of Cyclistic casual members use the bike-sharing service for leisure while the annual members mainly use it for work.
+
+Considering this, the best way to convert the casual riders into annual members is to tap into the benefits of using Cyclistic for leisure activities in Chicago. Using this analysis as a tool, the marketing team could look into the main attractions located next to the top 10 stations used by the casual riders and work on special deals (ex: 10% off the bill) exclusive for Cyclistic annual members. This analysis clearly shows the traffic around these landmarks as an argument to negotiate with local businesses.
+
+From their side, the participating attractions and businesses will increase their number of sales and customers as well as receiving free publicity through Cyclistic's various platforms.
+
+From Cyclistic's side, they increase their number of annual members and therefore, profit. They also strengthen their relationship with the city which could be useful for future projects. It is a win-win situation that is worth exploring.
